@@ -40,13 +40,20 @@
 #define FILE_IN_ZIP_MAX_NAME_LENGTH (256)
 
 
-@implementation ZipFile
+@implementation ZipFile {
+	NSString *_fileName;
+	ZipFileMode _mode;
+    
+@private
+	zipFile _zipFile;
+	unzFile _unzFile;
+}
 
 
-- (id) initWithFileName:(NSString *)fileName mode:(ZipFileMode)mode {
+- (id) initWithPath:(NSString *)path mode:(ZipFileMode)mode {
     self = [super init];
 	if (self) {
-		_fileName= fileName;
+		_fileName= path;
 		_mode= mode;
 		
 		switch (mode) {
