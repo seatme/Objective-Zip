@@ -33,10 +33,9 @@
 
 #import <Foundation/Foundation.h>
 
-#include "zip.h"
+#include "zip.h" 
 
-
-@interface ZipWriteStream : NSObject {
+@interface ZipWriteStream : NSOutputStream<NSStreamDelegate> {
 	NSString *_fileNameInZip;
 
 @private
@@ -44,8 +43,5 @@
 }
 
 - (id) initWithZipFileStruct:(zipFile)zipFile fileNameInZip:(NSString *)fileNameInZip;
-
-- (void) writeData:(NSData *)data;
-- (void) finishedWriting;
 
 @end
