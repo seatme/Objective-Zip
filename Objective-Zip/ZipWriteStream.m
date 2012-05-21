@@ -91,8 +91,9 @@
 		NSString *reason= [NSString stringWithFormat:@"Error in writing '%@' in the zipfile", _fileNameInZip];
 		@throw [[ZipException alloc] initWithError:err reason:reason];
 #endif
+        return retval;
 	}
-    return retval;
+    return len;
 }
 
 - (void) close {

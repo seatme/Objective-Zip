@@ -552,7 +552,7 @@
             do {
                 bytesWritten = [outStream write:&buffer[bytesWrittenSoFar] maxLength:bytesRead - bytesWrittenSoFar];
                 assert(bytesWritten != 0);
-                if (bytesWritten == -1) {
+                if (bytesWritten < 0) {
                     if (error){
                         *error = [NSError errorWithDomain:@"com.seatme.zip" code:0 userInfo:[NSDictionary dictionaryWithObject:@"Unable to write to zip" forKey:NSLocalizedDescriptionKey]];
                     }
