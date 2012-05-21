@@ -36,7 +36,7 @@
 #include "unzip.h"
 
 
-@interface ZipReadStream : NSObject {
+@interface ZipReadStream : NSInputStream<NSStreamDelegate> {
 	NSString *_fileNameInZip;
 	
 @private
@@ -45,7 +45,5 @@
 
 - (id) initWithUnzFileStruct:(unzFile)unzFile fileNameInZip:(NSString *)fileNameInZip;
 
-- (NSUInteger) readDataWithBuffer:(NSMutableData *)buffer;
-- (void) finishedReading;
 
 @end

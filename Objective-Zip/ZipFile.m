@@ -333,7 +333,7 @@
 		NSString *reason= [NSString stringWithFormat:@"Operation not permitted without Unzip mode"];
 		@throw [[ZipException alloc] initWithReason:reason];
 	}
-
+    
 	char filename_inzip[FILE_IN_ZIP_MAX_NAME_LENGTH];
 	unz_file_info file_info;
 	
@@ -415,6 +415,158 @@
 		}
 	}
 }
+
+
+@end
+
+
+@implementation ZipFile(ConvenienceMethods)
+
+
+// Assumes that self and endPath are absolute file paths. 
+// Example: [ @"/a/b/c/d" relativePathTo: @"/a/e/f/g/h"] => @"../../e/f/g/h". 
+- (NSString *)relativePathFromPath:(NSString *)startPath toPath:(NSString*)endPath { 
+    NSAssert( ! [startPath isEqual: endPath], @"illegal link to self"); 
+    NSArray *startComponents = [startPath pathComponents]; 
+    NSArray *endComponents = [endPath pathComponents]; 
+    NSMutableArray *resultComponents; 
+    int prefixCount = 0; 
+    if (![startPath isEqual: endPath])
+    { 
+        int iLen = MIN([startComponents count], [endComponents count]); 
+        
+        for(prefixCount = 0; prefixCount < iLen && [[startComponents objectAtIndex: prefixCount] isEqual: [endComponents objectAtIndex: prefixCount]]; ++prefixCount){} 
+    } 
+    
+    if (0 == prefixCount) 
+    { 
+        resultComponents = [NSMutableArray arrayWithArray: endComponents]; 
+    }
+    else
+    { 
+        resultComponents = [NSMutableArray arrayWithArray: [endComponents subarrayWithRange: NSMakeRange(prefixCount, [endComponents count] - prefixCount)]]; 
+        int lifterCount = [startComponents count] - prefixCount; 
+        if (1 == lifterCount)
+        { 
+            [resultComponents insertObject: @"." atIndex: 0]; 
+        }
+        else
+        { 
+            --lifterCount; 
+            for (int i = 0; i < lifterCount; ++i)
+            { 
+                [resultComponents insertObject: @".." atIndex: 0]; 
+            } 
+        } 
+    } 
+    return [NSString pathWithComponents: resultComponents]; 
+} 
+
+- (BOOL) addItemWithName:(NSString *)fileName atURL:(NSURL *)url compressionLevel:(ZipCompressionLevel)compressionLevel error:(NSError * __autoreleasing*)error {
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    
+    BOOL isDirectory;
+    if (![fileManager fileExistsAtPath:[url path] isDirectory:&isDirectory])
+    {
+        return NO;
+    }
+    
+    if (isDirectory) {
+        BOOL retval = YES;
+        NSString *directoryPath = [[url path] stringByResolvingSymlinksInPath];
+        NSDirectoryEnumerator *directoryEnumerator = [fileManager enumeratorAtURL:url 
+                                                       includingPropertiesForKeys:[NSArray arrayWithObjects:NSURLNameKey,
+                                                                                                                  NSURLIsDirectoryKey,nil]
+                                                                          options:0 
+                                                                     errorHandler:nil];
+        
+        for (NSURL *fileURL in directoryEnumerator) 
+        {
+            NSNumber *isURLDirectory;
+            [fileURL getResourceValue:&isURLDirectory forKey:NSURLIsDirectoryKey error:NULL];
+
+            if ([isURLDirectory boolValue]){
+                continue;
+            }
+            
+            NSString *filePath = [[fileURL path] stringByResolvingSymlinksInPath];
+        
+            NSString *relativeFilePath = [self relativePathFromPath:directoryPath toPath:filePath];
+            
+            NSError *berror;
+            retval = [self addItemWithName:relativeFilePath atURL:fileURL compressionLevel:compressionLevel error:&berror];
+            
+            if (!retval) {
+                if (error) {
+                    *error = berror;
+                }
+                
+                break;
+            }
+            
+        }
+        
+        return retval;
+    }
+    
+    NSError *oerror;
+    NSDictionary *fileAttributes = [fileManager attributesOfItemAtPath:[url path] error:&oerror];
+    
+    if (!fileAttributes) {
+        if (error) {
+            *error = oerror;
+        }
+        return NO;
+    }
+    
+    ZipWriteStream *outStream = [self writeFileInZipWithName:fileName fileDate:[fileAttributes fileModificationDate] compressionLevel:compressionLevel];
+    
+    NSInputStream *inputStream = [NSInputStream inputStreamWithFileAtPath:[url path]];
+    
+    [inputStream open];
+    
+    while (true) {
+        uint8_t buffer[1024];
+        NSInteger bytesRead = [inputStream read:buffer maxLength:1024];
+        
+        if (bytesRead < 0) {
+            if (error){
+                *error = [NSError errorWithDomain:@"com.seatme.zip" code:0 userInfo:[NSDictionary dictionaryWithObject:@"Unable to read from file" forKey:NSLocalizedDescriptionKey]];
+            }
+            break;
+        }
+        else if (bytesRead > 0) {
+            NSInteger   bytesWritten;
+            NSInteger   bytesWrittenSoFar;
+            
+            // Write to the zip.
+            bytesWrittenSoFar = 0;
+            do {
+                bytesWritten = [outStream write:&buffer[bytesWrittenSoFar] maxLength:bytesRead - bytesWrittenSoFar];
+                assert(bytesWritten != 0);
+                if (bytesWritten == -1) {
+                    if (error){
+                        *error = [NSError errorWithDomain:@"com.seatme.zip" code:0 userInfo:[NSDictionary dictionaryWithObject:@"Unable to write to zip" forKey:NSLocalizedDescriptionKey]];
+                    }
+                    break;
+                } else {
+                    bytesWrittenSoFar += bytesWritten;
+                }
+            } while (bytesWrittenSoFar != bytesRead);
+        }
+        else {
+            break;
+        }
+    }
+    
+    [outStream close];
+    [inputStream close];
+    
+    return YES;
+}
+
+
 
 
 @end

@@ -37,32 +37,83 @@
 #include "zip.h"
 
 
-@implementation ZipWriteStream
+@implementation ZipWriteStream {
+    __weak id<NSStreamDelegate> _delegate;
+    BOOL _isOpen;
+}
 
 
 - (id) initWithZipFileStruct:(zipFile)zipFile fileNameInZip:(NSString *)fileNameInZip {
 	if (self= [super init]) {
 		_zipFile= zipFile;
 		_fileNameInZip= fileNameInZip;
+        _delegate = self;
+        _isOpen = YES;
 	}
 	
 	return self;
 }
 
-- (void) writeData:(NSData *)data {
-	int err= zipWriteInFileInZip(_zipFile, [data bytes], [data length]);
-	if (err < 0) {
-		NSString *reason= [NSString stringWithFormat:@"Error in writing '%@' in the zipfile", _fileNameInZip];
-		@throw [[ZipException alloc] initWithError:err reason:reason];
-	}
+- (void)setDelegate:(id<NSStreamDelegate>)delegate {
+    if (delegate) {
+        _delegate = delegate;
+    } 
+    else
+    {
+        _delegate = self;
+    }
 }
 
-- (void) finishedWriting {
+- (id<NSStreamDelegate>)delegate {
+    return _delegate;
+}
+
+- (void)scheduleInRunLoop:(NSRunLoop *)aRunLoop forMode:(NSString *)mode {
+    //no-op. this is a polling stream.
+}
+
+- (void)removeFromRunLoop:(NSRunLoop *)aRunLoop forMode:(NSString *)mode {
+    //no-op. this is a polling stream.
+}
+
+- (id)propertyForKey:(NSString *)key {
+    return nil;
+}
+
+- (BOOL)setProperty:(id)property forKey:(NSString *)key {
+    return NO;
+}
+
+- (NSInteger)write:(const uint8_t *)buffer maxLength:(NSUInteger)len {
+    int retval= zipWriteInFileInZip(_zipFile, buffer, len);
+	if (retval < 0) {
+#ifdef THROW_ZIP_EXCEPTIONS        
+		NSString *reason= [NSString stringWithFormat:@"Error in writing '%@' in the zipfile", _fileNameInZip];
+		@throw [[ZipException alloc] initWithError:err reason:reason];
+#endif
+	}
+    return retval;
+}
+
+- (void) close {
 	int err= zipCloseFileInZip(_zipFile);
 	if (err != ZIP_OK) {
+#ifdef THROW_ZIP_EXCEPTIONS   
 		NSString *reason= [NSString stringWithFormat:@"Error in closing '%@' in the zipfile", _fileNameInZip];
 		@throw [[ZipException alloc] initWithError:err reason:reason];
+#endif
 	}
+    _isOpen = NO;
+}
+
+- (BOOL) hasSpaceAvailable {
+    return YES;
+}
+
+- (void)dealloc {
+    if (_isOpen) {
+        [self close];
+    }
 }
 
 

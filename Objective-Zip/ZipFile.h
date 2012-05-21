@@ -84,3 +84,9 @@ typedef enum {
 - (void) closeZipFile;
 
 @end
+
+@interface ZipFile(ConvenienceMethods)
+
+- (BOOL) addItemWithName:(NSString *)fileName atURL:(NSURL *)url compressionLevel:(ZipCompressionLevel)compressionLevel error:(NSError * __autoreleasing*)error;
+
+@end
