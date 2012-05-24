@@ -1051,8 +1051,9 @@ extern int ZEXPORT zipCloseFileInZipRaw (file, uncompressed_size, crc32)
         uLong uTotalOutBefore;
         if (zi->ci.stream.avail_out == 0)
         {
-            if (zipFlushWriteBuffer(zi) == ZIP_ERRNO)
-                err = ZIP_ERRNO;
+            // Previous version dead-stored ZIP_ERRNO into err (overwritten by deflate call below).
+            // Not sure whether something should be done here in response to an error.
+            zipFlushWriteBuffer(zi);
             zi->ci.stream.avail_out = (uInt)Z_BUFSIZE;
             zi->ci.stream.next_out = zi->ci.buffered_data;
         }
